@@ -1,11 +1,16 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
+	"os"
 	"time"
-	//"fmt"	
 
-	"github.com/banthar/Go-SDL/sdl"
+	"github.com/veandco/go-sdl2/sdl"
+)
+
+const (
+	frameRate = 60
 )
 
 // Find the smallest and greatest of two given numbers
@@ -17,7 +22,7 @@ func minmax(a, b int) (int, int) {
 }
 
 // Draw a line
-func Line(screen *sdl.Surface, x1 int, y1 int, x2 int, y2 int, color sdl.Color) {
+func Line(renderer *sdl.Renderer, x1, y1, x2, y2 int) {
 	if x1 == x2 || y1 == y2 {
 		return
 	}
@@ -33,13 +38,13 @@ func Line(screen *sdl.Surface, x1 int, y1 int, x2 int, y2 int, color sdl.Color) 
 		y := float32(starty)
 		ystep := float32(ydiff) / float32(xdiff)
 		if y1 != starty {
-			// Move in the other direction along Y			
+			// Move in the other direction along Y
 			ystep = -ystep
 			y = float32(stopy)
 		}
 		// Draw the line
 		for x := startx; x < stopx; x++ {
-			screen.Set(x, int(y), color)
+			renderer.DrawPoint(x, int(y))
 			y += ystep
 		}
 	} else {
@@ -53,14 +58,14 @@ func Line(screen *sdl.Surface, x1 int, y1 int, x2 int, y2 int, color sdl.Color) 
 		}
 		// Draw the line
 		for y := starty; y < stopy; y++ {
-			screen.Set(int(x), y, color)
+			renderer.DrawPoint(int(x), y)
 			x += xstep
 		}
 	}
 }
 
 // Draw a line where the coordinates are doubled and the pixels too
-func DoublePixelLine(screen *sdl.Surface, x1 int, y1 int, x2 int, y2 int, color sdl.Color) {
+func DoublePixelLine(renderer *sdl.Renderer, x1, y1, x2, y2 int) {
 	if x1 == x2 || y1 == y2 {
 		return
 	}
@@ -79,7 +84,7 @@ func DoublePixelLine(screen *sdl.Surface, x1 int, y1 int, x2 int, y2 int, color 
 		y := float32(starty)
 		ystep := float32(ydiff) / float32(xdiff)
 		if y1 != starty {
-			// Move in the other direction along Y			
+			// Move in the other direction along Y
 			ystep = -ystep
 			y = float32(stopy)
 		}
@@ -87,10 +92,10 @@ func DoublePixelLine(screen *sdl.Surface, x1 int, y1 int, x2 int, y2 int, color 
 		for x := startx; x < stopx; x++ {
 			doublex = x * 2
 			doubley = int(y) * 2
-			screen.Set(doublex, doubley, color)
-			screen.Set(doublex+1, doubley, color)
-			screen.Set(doublex, doubley+1, color)
-			screen.Set(doublex+1, doubley+1, color)
+			renderer.DrawPoint(doublex, doubley)
+			renderer.DrawPoint(doublex+1, doubley)
+			renderer.DrawPoint(doublex, doubley+1)
+			renderer.DrawPoint(doublex+1, doubley+1)
 			y += ystep
 		}
 	} else {
@@ -106,10 +111,10 @@ func DoublePixelLine(screen *sdl.Surface, x1 int, y1 int, x2 int, y2 int, color 
 		for y := starty; y < stopy; y++ {
 			doublex = int(x) * 2
 			doubley = y * 2
-			screen.Set(doublex, doubley, color)
-			screen.Set(doublex+1, doubley, color)
-			screen.Set(doublex, doubley+1, color)
-			screen.Set(doublex+1, doubley+1, color)
+			renderer.DrawPoint(doublex, doubley)
+			renderer.DrawPoint(doublex+1, doubley)
+			renderer.DrawPoint(doublex, doubley+1)
+			renderer.DrawPoint(doublex+1, doubley+1)
 			x += xstep
 		}
 	}
@@ -117,14 +122,13 @@ func DoublePixelLine(screen *sdl.Surface, x1 int, y1 int, x2 int, y2 int, color 
 
 // Checks if ESC is pressed
 func escPressed() bool {
-	keyMap := sdl.GetKeyState()
+	keyMap := sdl.GetKeyboardState()
 	return 1 == keyMap[sdl.K_ESCAPE]
 }
 
-func main() {
-	if sdl.Init(sdl.INIT_EVERYTHING) != 0 {
-		panic(sdl.GetError())
-	}
+func run() int {
+
+	sdl.Init(sdl.INIT_VIDEO)
 
 	// The actual resolution (screenspace)
 	W := 800
@@ -134,30 +138,54 @@ func main() {
 	MAXX := 400
 	MAXY := 300
 
-	screen := sdl.SetVideoMode(W, H, 32, sdl.FULLSCREEN)
-	if screen == nil {
-		panic(sdl.GetError())
+	var (
+		window   *sdl.Window
+		renderer *sdl.Renderer
+		err      error
+	)
+
+	window, err = sdl.CreateWindow("Random Pixelated Lines", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, W, H, 0)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create window: %s\n", err)
+		return 1
 	}
-	sdl.EnableUNICODE(1)
-	sdl.ShowCursor(0)
+	defer func() {
+		window.Destroy()
+	}()
 
-	sdl.WM_SetCaption("Random Lines", "")
+	renderer, err = sdl.CreateRenderer(window, -1, 0)
+	if err != nil {
+		fmt.Fprint(os.Stderr, "Failed to create renderer: %s\n", err)
+		return 2
+	}
+	defer func() {
+		renderer.Destroy()
+	}()
 
-	red := sdl.Color{255, 0, 0, 255}
-	color := red
+	renderer.Clear()
+	renderer.SetDrawColor(255, 0, 0, 255)
 
 	rand.Seed(time.Now().UnixNano())
 
-	for {
-		color = sdl.Color{uint8(rand.Intn(255)), uint8(rand.Intn(255)), uint8(rand.Intn(255)), 255}
-		DoublePixelLine(screen, rand.Intn(MAXX), rand.Intn(MAXY), rand.Intn(MAXX), rand.Intn(MAXY), color)
-		if escPressed() {
-			break
+	var event sdl.Event
+	running := true
+	for running {
+		// Innerloop
+		renderer.SetDrawColor(uint8(rand.Intn(255)), uint8(rand.Intn(255)), uint8(rand.Intn(255)), 255)
+		DoublePixelLine(renderer, rand.Intn(MAXX), rand.Intn(MAXY), rand.Intn(MAXX), rand.Intn(MAXY))
+		renderer.Present()
+		for event = sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
+			switch event.(type) {
+			case *sdl.QuitEvent:
+				running = false
+			}
 		}
-		screen.Flip()
-		sdl.PollEvent()
-		//sdl.Delay(10)
+		sdl.Delay(1000 / frameRate)
 	}
 
-	sdl.Quit()
+	return 0
+}
+
+func main() {
+	os.Exit(run())
 }
