@@ -12,8 +12,8 @@ import (
 
 const (
 	// Resolution
-	W = 1024
-	H = 768
+	W = 320
+	H = 200
 
 	// Size of pixels
 	SCALE = 8
@@ -124,10 +124,10 @@ func ScaledPixelLine(renderer *sdl.Renderer, x1, y1, x2, y2 int32, scale int32) 
 }
 
 // Checks if ESC is pressed
-func escPressed() bool {
-	keyMap := sdl.GetKeyboardState()
-	return 1 == keyMap[sdl.K_ESCAPE]
-}
+//func escPressed() bool {
+//	keyMap := sdl.GetKeyboardState()
+//	return 1 == keyMap[sdl.K_ESCAPE]
+//}
 
 func run() int {
 
