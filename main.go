@@ -1,3 +1,4 @@
+// Example of software rendering
 package main
 
 import (
@@ -10,11 +11,19 @@ import (
 )
 
 const (
+	// Resolution
+	W = 1024
+	H = 768
+
+	// Size of pixels
+	SCALE = 8
+
+	// Target framerate
 	frameRate = 60
 )
 
 // Find the smallest and greatest of two given numbers
-func minmax(a, b int) (int, int) {
+func minmax(a, b int32) (int32, int32) {
 	if a < b {
 		return a, b
 	}
@@ -22,7 +31,7 @@ func minmax(a, b int) (int, int) {
 }
 
 // Draw a line
-func Line(renderer *sdl.Renderer, x1, y1, x2, y2 int) {
+func Line(renderer *sdl.Renderer, x1, y1, x2, y2 int32) {
 	if x1 == x2 || y1 == y2 {
 		return
 	}
@@ -44,7 +53,7 @@ func Line(renderer *sdl.Renderer, x1, y1, x2, y2 int) {
 		}
 		// Draw the line
 		for x := startx; x < stopx; x++ {
-			renderer.DrawPoint(x, int(y))
+			renderer.DrawPoint(int32(x), int32(y))
 			y += ystep
 		}
 	} else {
@@ -58,14 +67,14 @@ func Line(renderer *sdl.Renderer, x1, y1, x2, y2 int) {
 		}
 		// Draw the line
 		for y := starty; y < stopy; y++ {
-			renderer.DrawPoint(int(x), y)
+			renderer.DrawPoint(int32(x), int32(y))
 			x += xstep
 		}
 	}
 }
 
 // Draw a line where the coordinates are doubled and the pixels too
-func DoublePixelLine(renderer *sdl.Renderer, x1, y1, x2, y2 int) {
+func ScaledPixelLine(renderer *sdl.Renderer, x1, y1, x2, y2 int32, scale int32) {
 	if x1 == x2 || y1 == y2 {
 		return
 	}
@@ -76,13 +85,13 @@ func DoublePixelLine(renderer *sdl.Renderer, x1, y1, x2, y2 int) {
 	xdiff := stopx - startx
 	ydiff := stopy - starty
 
-	doublex := 0
-	doubley := 0
+	var doublex int32
+	var doubley int32
 
 	if xdiff > ydiff {
 		// We're going along X
-		y := float32(starty)
 		ystep := float32(ydiff) / float32(xdiff)
+		y := float32(starty)
 		if y1 != starty {
 			// Move in the other direction along Y
 			ystep = -ystep
@@ -90,18 +99,15 @@ func DoublePixelLine(renderer *sdl.Renderer, x1, y1, x2, y2 int) {
 		}
 		// Draw the line
 		for x := startx; x < stopx; x++ {
-			doublex = x * 2
-			doubley = int(y) * 2
-			renderer.DrawPoint(doublex, doubley)
-			renderer.DrawPoint(doublex+1, doubley)
-			renderer.DrawPoint(doublex, doubley+1)
-			renderer.DrawPoint(doublex+1, doubley+1)
+			doublex = x * scale
+			doubley = int32(y) * scale
+			renderer.FillRect(&sdl.Rect{doublex, doubley, scale, scale})
 			y += ystep
 		}
 	} else {
 		// We're going along Y
-		x := float32(startx)
 		xstep := float32(xdiff) / float32(ydiff)
+		x := float32(startx)
 		if x1 != startx {
 			// Move in the other direction along X
 			xstep = -xstep
@@ -109,12 +115,9 @@ func DoublePixelLine(renderer *sdl.Renderer, x1, y1, x2, y2 int) {
 		}
 		// Draw the line
 		for y := starty; y < stopy; y++ {
-			doublex = int(x) * 2
-			doubley = y * 2
-			renderer.DrawPoint(doublex, doubley)
-			renderer.DrawPoint(doublex+1, doubley)
-			renderer.DrawPoint(doublex, doubley+1)
-			renderer.DrawPoint(doublex+1, doubley+1)
+			doublex = int32(x) * scale
+			doubley = y * scale
+			renderer.FillRect(&sdl.Rect{doublex, doubley, scale, scale})
 			x += xstep
 		}
 	}
@@ -130,13 +133,9 @@ func run() int {
 
 	sdl.Init(sdl.INIT_VIDEO)
 
-	// The actual resolution (screenspace)
-	W := 800
-	H := 600
-
 	// The virtual resolution (worldspace)
-	MAXX := 400
-	MAXY := 300
+	MAXX := W / SCALE
+	MAXY := H / SCALE
 
 	var (
 		window   *sdl.Window
@@ -144,7 +143,7 @@ func run() int {
 		err      error
 	)
 
-	window, err = sdl.CreateWindow("Random Pixelated Lines", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, W, H, 0)
+	window, err = sdl.CreateWindow("Random Pixelated Lines", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, int32(W), int32(H), 0)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create window: %s\n", err)
 		return 1
@@ -172,12 +171,23 @@ func run() int {
 	for running {
 		// Innerloop
 		renderer.SetDrawColor(uint8(rand.Intn(255)), uint8(rand.Intn(255)), uint8(rand.Intn(255)), 255)
-		DoublePixelLine(renderer, rand.Intn(MAXX), rand.Intn(MAXY), rand.Intn(MAXX), rand.Intn(MAXY))
+		ScaledPixelLine(renderer, int32(rand.Intn(MAXX)), int32(rand.Intn(MAXY)), int32(rand.Intn(MAXX)), int32(rand.Intn(MAXY)), int32(SCALE))
 		renderer.Present()
 		for event = sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			switch event.(type) {
 			case *sdl.QuitEvent:
 				running = false
+			case *sdl.KeyboardEvent:
+				ke := event.(*sdl.KeyboardEvent)
+				if ke.Type == sdl.KEYDOWN {
+					ks := ke.Keysym
+					switch ks.Sym {
+					case sdl.K_ESCAPE:
+						running = false
+					case sdl.K_q:
+						running = false
+					}
+				}
 			}
 		}
 		sdl.Delay(1000 / frameRate)
