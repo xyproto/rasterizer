@@ -154,7 +154,7 @@ func run() int {
 
 	renderer, err = sdl.CreateRenderer(window, -1, 0)
 	if err != nil {
-		fmt.Fprint(os.Stderr, "Failed to create renderer: %s\n", err)
+		fmt.Fprintf(os.Stderr, "Failed to create renderer: %s\n", err)
 		return 2
 	}
 	defer func() {
