@@ -1,8 +1,16 @@
-rasterize
-=========
+rasterizer
+==========
 
-Tiny program that draws pixelated lines at random, using SDL
+An experiment in software rendering, using Go and SDL2.
+
+Screen recording
+----------------
 
 ![rasterizer](rasterizer.gif)
 
-License: GPL2
+General info
+------------
+
+* Version: 0.1
+* Author: Alexander F. Rødseth &lt;xyproto@archlinux.org&gt;
+* License: GPL2
