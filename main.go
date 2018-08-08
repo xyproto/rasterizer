@@ -11,139 +11,72 @@ import (
 )
 
 const (
-	// Resolution
-	W = 320
-	H = 200
+	// Size of "worldspace pixels", measured in "screenspace pixels"
+	SCALE = 4
 
-	// Size of pixels
-	SCALE = 8
+	// The resolution (worldspace)
+	MAXX = 128
+	MAXY = 128
 
 	// Target framerate
 	frameRate = 60
+
+	// The resolution (screenspace)
+	W = MAXX * SCALE
+	H = MAXY * SCALE
+
+	// Alpha value for opaque colors
+	OPAQUE = 255
 )
 
-// Find the smallest and greatest of two given numbers
-func minmax(a, b int32) (int32, int32) {
-	if a < b {
-		return a, b
-	}
-	return b, a
+// isFullscreen checks if the current window has the WINDOW_FULLSCREEN_DESKTOP flag set
+func isFullscreen(window *sdl.Window) bool {
+	return (window.GetFlags() & sdl.WINDOW_FULLSCREEN_DESKTOP) != 0
 }
 
-// Draw a line
-func Line(renderer *sdl.Renderer, x1, y1, x2, y2 int32) {
-	if x1 == x2 || y1 == y2 {
-		return
+// toggleFullscreen switches to fullscreen and back
+// returns true if the mode has been switched to fullscreen
+func toggleFullscreen(window *sdl.Window) bool {
+	if !isFullscreen(window) {
+		// Switch to fullscreen mode
+		window.SetFullscreen(sdl.WINDOW_FULLSCREEN_DESKTOP)
+		return true
 	}
+	// Switch to windowed mode
+	window.SetFullscreen(sdl.WINDOW_SHOWN)
+	return false
+}
 
-	startx, stopx := minmax(x1, x2)
-	starty, stopy := minmax(y1, y2)
-
-	xdiff := stopx - startx
-	ydiff := stopy - starty
-
-	if xdiff > ydiff {
-		// We're going along X
-		y := float32(starty)
-		ystep := float32(ydiff) / float32(xdiff)
-		if y1 != starty {
-			// Move in the other direction along Y
-			ystep = -ystep
-			y = float32(stopy)
-		}
-		// Draw the line
-		for x := startx; x < stopx; x++ {
-			renderer.DrawPoint(int32(x), int32(y))
-			y += ystep
-		}
+// toggleFullscreen2 switches to fullscreen and back, using a pointer to a boolean to keep track of the state
+func toggleFullscreen2(window *sdl.Window, fullscreen *bool) {
+	if *fullscreen {
+		// Switch back to windowed mode
+		window.SetFullscreen(sdl.WINDOW_SHOWN)
 	} else {
-		// We're going along Y
-		x := float32(startx)
-		xstep := float32(xdiff) / float32(ydiff)
-		if x1 != startx {
-			// Move in the other direction along X
-			xstep = -xstep
-			x = float32(stopx)
-		}
-		// Draw the line
-		for y := starty; y < stopy; y++ {
-			renderer.DrawPoint(int32(x), int32(y))
-			x += xstep
-		}
+		// Switch to fullscreen mode
+		window.SetFullscreen(sdl.WINDOW_FULLSCREEN_DESKTOP)
 	}
+	*fullscreen = !*fullscreen
 }
 
-// Draw a line where the coordinates are doubled and the pixels too
-func ScaledPixelLine(renderer *sdl.Renderer, x1, y1, x2, y2 int32, scale int32) {
-	if x1 == x2 || y1 == y2 {
-		return
-	}
-
-	startx, stopx := minmax(x1, x2)
-	starty, stopy := minmax(y1, y2)
-
-	xdiff := stopx - startx
-	ydiff := stopy - starty
-
-	var doublex int32
-	var doubley int32
-
-	if xdiff > ydiff {
-		// We're going along X
-		ystep := float32(ydiff) / float32(xdiff)
-		y := float32(starty)
-		if y1 != starty {
-			// Move in the other direction along Y
-			ystep = -ystep
-			y = float32(stopy)
-		}
-		// Draw the line
-		for x := startx; x < stopx; x++ {
-			doublex = x * scale
-			doubley = int32(y) * scale
-			renderer.FillRect(&sdl.Rect{doublex, doubley, scale, scale})
-			y += ystep
-		}
-	} else {
-		// We're going along Y
-		xstep := float32(xdiff) / float32(ydiff)
-		x := float32(startx)
-		if x1 != startx {
-			// Move in the other direction along X
-			xstep = -xstep
-			x = float32(stopx)
-		}
-		// Draw the line
-		for y := starty; y < stopy; y++ {
-			doublex = int32(x) * scale
-			doubley = y * scale
-			renderer.FillRect(&sdl.Rect{doublex, doubley, scale, scale})
-			x += xstep
-		}
-	}
+// ranb returns a random byte
+func ranb() uint8 {
+	return uint8(rand.Intn(255))
 }
-
-// Checks if ESC is pressed
-//func escPressed() bool {
-//	keyMap := sdl.GetKeyboardState()
-//	return 1 == keyMap[sdl.K_ESCAPE]
-//}
 
 func run() int {
 
 	sdl.Init(sdl.INIT_VIDEO)
 
-	// The virtual resolution (worldspace)
-	MAXX := W / SCALE
-	MAXY := H / SCALE
-
 	var (
-		window   *sdl.Window
-		renderer *sdl.Renderer
-		err      error
+		window    *sdl.Window
+		renderer  *sdl.Renderer
+		err       error
+		ssOffsetX int32
+		ssOffsetY int32
 	)
 
-	window, err = sdl.CreateWindow("Random Pixelated Lines", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, int32(W), int32(H), 0)
+	window, err = sdl.CreateWindow("Pixels!", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, int32(W), int32(H), sdl.WINDOW_SHOWN)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create window: %s\n", err)
 		return 1
@@ -152,7 +85,7 @@ func run() int {
 		window.Destroy()
 	}()
 
-	renderer, err = sdl.CreateRenderer(window, -1, 0)
+	renderer, err = sdl.CreateRenderer(window, -1, sdl.RENDERER_ACCELERATED)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create renderer: %s\n", err)
 		return 2
@@ -161,8 +94,16 @@ func run() int {
 		renderer.Destroy()
 	}()
 
+	renderer.SetDrawColor(0, 0, 0, OPAQUE)
 	renderer.Clear()
-	renderer.SetDrawColor(255, 0, 0, 255)
+
+	//surf, err := sdl.CreateRGBSurfaceWithFormat(0, MAXX, MAXY, 32, uint32(sdl.PIXELFORMAT_RGBA32))
+	//if err != nil {
+	//	panic(err)
+	//}
+	//surf.SetBlendMode(sdl.BLENDMODE_BLEND) // BLENDMODE_ADD or BLENDEMODE_MOD is also possible
+	//surf.SetDrawColor(0, 0, 255, 127)
+	//surf.Clear()
 
 	rand.Seed(time.Now().UnixNano())
 
@@ -170,8 +111,10 @@ func run() int {
 	running := true
 	for running {
 		// Innerloop
-		renderer.SetDrawColor(uint8(rand.Intn(255)), uint8(rand.Intn(255)), uint8(rand.Intn(255)), 255)
-		ScaledPixelLine(renderer, int32(rand.Intn(MAXX)), int32(rand.Intn(MAXY)), int32(rand.Intn(MAXX)), int32(rand.Intn(MAXY)), int32(SCALE))
+		renderer.SetDrawColor(ranb(), ranb(), ranb(), OPAQUE)
+		ScaledPixelLine(renderer, rand.Int31n(MAXX), rand.Int31n(MAXY), rand.Int31n(MAXX), rand.Int31n(MAXY), int32(SCALE), ssOffsetX, ssOffsetY)
+		renderer.SetDrawColor(ranb(), 0, 0, OPAQUE)
+		ScaledPixel(renderer, rand.Int31n(MAXX), rand.Int31n(MAXY), int32(SCALE), ssOffsetX, ssOffsetY)
 		renderer.Present()
 		for event = sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			switch event.(type) {
@@ -186,6 +129,23 @@ func run() int {
 						running = false
 					case sdl.K_q:
 						running = false
+					case sdl.K_f, sdl.K_F11:
+						if toggleFullscreen(window) {
+							renderer.SetDrawColor(0, 0, 0, OPAQUE)
+							renderer.Clear()
+							dMode, err := window.GetDisplayMode()
+							if err != nil {
+								fmt.Fprintf(os.Stderr, "Failed to create window: %s\n", err)
+								return 1
+								panic(err)
+							}
+							// Screenspace offset, when in fullscreen mode
+							ssOffsetX = (dMode.W - MAXX*SCALE) / 2
+							ssOffsetY = (dMode.H - MAXY*SCALE) / 2
+						} else {
+							ssOffsetX = 0
+							ssOffsetY = 0
+						}
 					}
 				}
 			}
