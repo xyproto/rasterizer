@@ -31,7 +31,10 @@ const (
 
 // isFullscreen checks if the current window has the WINDOW_FULLSCREEN_DESKTOP flag set
 func isFullscreen(window *sdl.Window) bool {
-	return (window.GetFlags() & sdl.WINDOW_FULLSCREEN_DESKTOP) != 0
+	currentFlags := window.GetFlags()
+	fullscreen1 := (currentFlags & sdl.WINDOW_FULLSCREEN_DESKTOP) != 0
+	fullscreen2 := (currentFlags & sdl.WINDOW_FULLSCREEN) != 0
+	return fullscreen1 || fullscreen2
 }
 
 // toggleFullscreen switches to fullscreen and back
