@@ -100,14 +100,6 @@ func run() int {
 	renderer.SetDrawColor(0, 0, 0, OPAQUE)
 	renderer.Clear()
 
-	//surf, err := sdl.CreateRGBSurfaceWithFormat(0, MAXX, MAXY, 32, uint32(sdl.PIXELFORMAT_RGBA32))
-	//if err != nil {
-	//	panic(err)
-	//}
-	//surf.SetBlendMode(sdl.BLENDMODE_BLEND) // BLENDMODE_ADD or BLENDEMODE_MOD is also possible
-	//surf.SetDrawColor(0, 0, 255, 127)
-	//surf.Clear()
-
 	rand.Seed(time.Now().UnixNano())
 
 	var event sdl.Event
