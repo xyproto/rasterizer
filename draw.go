@@ -1,7 +1,10 @@
 package main
 
 import (
-	"github.com/veandco/go-sdl2/sdl"
+	"encoding/binary"
+	"image/color"
+
+	"github.com/xyproto/go-sdl2/sdl"
 )
 
 // Find the smallest and greatest of two given numbers
@@ -13,7 +16,7 @@ func minmax(a, b int32) (int32, int32) {
 }
 
 // Draw a line
-func Line(renderer *sdl.Renderer, x1, y1, x2, y2 int32) {
+func Line(pixels []uint32, x1, y1, x2, y2 int32, c color.RGBA, pitch int32) {
 	if x1 == x2 || y1 == y2 {
 		return
 	}
@@ -35,7 +38,7 @@ func Line(renderer *sdl.Renderer, x1, y1, x2, y2 int32) {
 		}
 		// Draw the line
 		for x := startx; x < stopx; x++ {
-			renderer.DrawPoint(int32(x), int32(y))
+			Pixel(pixels, int32(x), int32(y), c, pitch)
 			y += ystep
 		}
 	} else {
@@ -49,7 +52,7 @@ func Line(renderer *sdl.Renderer, x1, y1, x2, y2 int32) {
 		}
 		// Draw the line
 		for y := starty; y < stopy; y++ {
-			renderer.DrawPoint(int32(x), int32(y))
+			Pixel(pixels, int32(x), int32(y), c, pitch)
 			x += xstep
 		}
 	}
@@ -108,4 +111,9 @@ func ScaledPixelLine(renderer *sdl.Renderer, x1, y1, x2, y2, scale, ssOffsetX, s
 // Draw a worldspace pixel in screenspace
 func ScaledPixel(renderer *sdl.Renderer, x, y, scale, ssOffsetX, ssOffsetY int32) {
 	renderer.FillRect(&sdl.Rect{x*scale + ssOffsetX, y*scale + ssOffsetY, scale, scale})
+}
+
+// Draw a screenspace pixel
+func Pixel(pixels []uint32, x, y int32, c color.RGBA, pitch int32) {
+	pixels[y*pitch+x] = binary.BigEndian.Uint32([]uint8{c.A, c.R, c.G, c.B})
 }

@@ -3,27 +3,24 @@ package main
 
 import (
 	"fmt"
+	"image/color"
 	"math/rand"
 	"os"
 	"time"
 
-	"github.com/veandco/go-sdl2/sdl"
+	"github.com/xyproto/go-sdl2/sdl"
 )
 
 const (
 	// Size of "worldspace pixels", measured in "screenspace pixels"
-	SCALE = 4
+	PIXELSCALE = 4
 
 	// The resolution (worldspace)
-	MAXX = 128
-	MAXY = 128
+	W = 128
+	H = 128
 
 	// Target framerate
 	frameRate = 60
-
-	// The resolution (screenspace)
-	W = MAXX * SCALE
-	H = MAXY * SCALE
 
 	// Alpha value for opaque colors
 	OPAQUE = 255
@@ -72,14 +69,12 @@ func run() int {
 	sdl.Init(sdl.INIT_VIDEO)
 
 	var (
-		window    *sdl.Window
-		renderer  *sdl.Renderer
-		err       error
-		ssOffsetX int32
-		ssOffsetY int32
+		window   *sdl.Window
+		renderer *sdl.Renderer
+		err      error
 	)
 
-	window, err = sdl.CreateWindow("Pixels!", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, int32(W), int32(H), sdl.WINDOW_SHOWN)
+	window, err = sdl.CreateWindow("Pixels!", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, int32(W*PIXELSCALE), int32(H*PIXELSCALE), sdl.WINDOW_SHOWN)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create window: %s\n", err)
 		return 1
@@ -100,17 +95,34 @@ func run() int {
 	renderer.SetDrawColor(0, 0, 0, OPAQUE)
 	renderer.Clear()
 
+	texture, err := renderer.CreateTexture(sdl.PIXELFORMAT_ARGB8888, sdl.TEXTUREACCESS_STREAMING, W, H)
+	if err != nil {
+		panic(err)
+	}
+	pixels := make([]uint32, W*H)
+
+	texture.SetBlendMode(sdl.BLENDMODE_BLEND)
+	renderer.SetDrawBlendMode(sdl.BLENDMODE_BLEND)
+
+	//texture.SetBlendMode(sdl.BLENDMODE_ADD);
+	//renderer.SetDrawBlendMode(sdl.BLENDMODE_ADD);
+
 	rand.Seed(time.Now().UnixNano())
 
 	var event sdl.Event
 	running := true
 	for running {
 		// Innerloop
-		renderer.SetDrawColor(ranb(), ranb(), ranb(), OPAQUE)
-		ScaledPixelLine(renderer, rand.Int31n(MAXX), rand.Int31n(MAXY), rand.Int31n(MAXX), rand.Int31n(MAXY), int32(SCALE), ssOffsetX, ssOffsetY)
-		renderer.SetDrawColor(ranb(), 0, 0, OPAQUE)
-		ScaledPixel(renderer, rand.Int31n(MAXX), rand.Int31n(MAXY), int32(SCALE), ssOffsetX, ssOffsetY)
+		//renderer.SetDrawColor(ranb(), ranb(), ranb(), OPAQUE)
+		Line(pixels, rand.Int31n(W), rand.Int31n(H), rand.Int31n(W), rand.Int31n(H), color.RGBA{ranb(), ranb(), ranb(), OPAQUE}, W)
+		//renderer.SetDrawColor(ranb(), 0, 0, OPAQUE)
+		Pixel(pixels, rand.Int31n(W), rand.Int31n(H), color.RGBA{190, 200, 255, ranb()}, W)
+
+		texture.UpdateRGBA(nil, pixels, W)
+		renderer.Clear()
+		renderer.Copy(texture, nil, nil)
 		renderer.Present()
+
 		for event = sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			switch event.(type) {
 			case *sdl.QuitEvent:
@@ -128,18 +140,13 @@ func run() int {
 						if toggleFullscreen(window) {
 							renderer.SetDrawColor(0, 0, 0, OPAQUE)
 							renderer.Clear()
-							dMode, err := window.GetDisplayMode()
-							if err != nil {
-								fmt.Fprintf(os.Stderr, "Failed to create window: %s\n", err)
-								return 1
-								panic(err)
-							}
-							// Screenspace offset, when in fullscreen mode
-							ssOffsetX = (dMode.W - MAXX*SCALE) / 2
-							ssOffsetY = (dMode.H - MAXY*SCALE) / 2
-						} else {
-							ssOffsetX = 0
-							ssOffsetY = 0
+							//dMode, err := window.GetDisplayMode()
+							//if err != nil {
+							//	fmt.Fprintf(os.Stderr, "Failed to create window: %s\n", err)
+							//	return 1
+							//	panic(err)
+							//}
+							// dMode.W, dMode.H
 						}
 					}
 				}
